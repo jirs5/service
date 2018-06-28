@@ -24,7 +24,17 @@ func isUpstart() bool {
 	if _, err := os.Stat("/sbin/init"); err == nil {
 		if out, err := exec.Command("/sbin/init", "--version").Output(); err == nil {
 			if strings.Contains(string(out), "init (upstart") {
-				return true
+				re := regexp.MustCompile("[0-9]+")
+				s := re.FindAllString(string(strings.Split(string(out), "\n")[0]), -1)
+				first_digit, _ := strconv.Atoi(s[0])
+				second_digit, _ := strconv.Atoi(s[1])
+				if second_digit >= 4 {
+					if first_digit >= 1 {
+						return true
+					} else {
+						return false
+					}
+				}
 			}
 		}
 	}
@@ -145,12 +155,13 @@ func (s *upstart) Install() error {
 }
 
 func (s *upstart) Uninstall() error {
+	run("initctl", "stop", s.Name)
 	cp, err := s.configPath()
 	if err != nil {
-		return err
+		//return err
 	}
 	if err := os.Remove(cp); err != nil {
-		return err
+		//return err
 	}
 	return nil
 }
