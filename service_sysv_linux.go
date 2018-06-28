@@ -101,13 +101,20 @@ func (s *sysv) Install() error {
 }
 
 func (s *sysv) Uninstall() error {
-	cp, err := s.configPath()
+	run("/sbin/chkconfig", "--del", s.Name)
+	/*cp, err := s.configPath()
 	if err != nil {
 		return err
 	}
 	if err := os.Remove(cp); err != nil {
 		return err
-	}
+	}*/
+	//removing old service log files
+	os.Remove("/var/log/" + s.Name + ".log")
+	os.Remove("/var/log/" + s.Name + ".err")
+	//removing service log files
+	os.Remove("/var/log/opsramp/" + s.Name + ".log")
+	os.Remove("/var/log/opsramp/" + s.Name + ".err")
 	return nil
 }
 
@@ -173,8 +180,8 @@ cmd="{{.Path}}{{range .Arguments}} {{.|cmd}}{{end}}"
 
 name=$(basename $(readlink -f $0))
 pid_file="/var/run/$name.pid"
-stdout_log="/var/log/$name.log"
-stderr_log="/var/log/$name.err"
+stdout_log="/var/log/opsramp/$name.log"
+stderr_log="/var/log/opsramp/$name.err"
 
 [ -e /etc/sysconfig/$name ] && . /etc/sysconfig/$name
 
@@ -237,9 +244,9 @@ case "$1" in
     ;;
     status)
         if is_running; then
-            echo "Running"
+            echo "$name Running"
         else
-            echo "Stopped"
+            echo "$name Stopped"
             exit 1
         fi
     ;;
