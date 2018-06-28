@@ -1,0 +1,59 @@
+Changes in service package:
+--------------------------
+1. in service_systemd_linux.go file
+
+	-- In Uninstall() fucntion added below lines and commented return err lines
+
+		//Remove/stop agent
+		run("systemctl", "stop", s.Name+".service")
+
+2. in service_sysv_linux.go file
+
+	-- In Uninstall() fucntion added below lines and commented existing lines of code
+
+		run("/sbin/chkconfig", "--del", s.Name)
+		/*cp, err := s.configPath()
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(cp); err != nil {
+			return err
+		}*/
+		//removing old service log files
+		os.Remove("/var/log/" + s.Name + ".log")
+		os.Remove("/var/log/" + s.Name + ".err")
+		//removing service log files
+		os.Remove("/var/log/opsramp/" + s.Name + ".log")
+		os.Remove("/var/log/opsramp/" + s.Name + ".err")
+
+	-- Changes in init script, creating service og files in /var/log/opsramp folder instead of /var/log 
+
+		stdout_log="/var/log/opsramp/$name.log"
+		stderr_log="/var/log/opsramp/$name.err"
+
+		$name Running
+		$name Stopped
+
+3. in service_upstart_linux.go file
+
+	-- In isUpstart() fuction added below code
+
+		if strings.Contains(string(out), "init (upstart") {
+			re := regexp.MustCompile("[0-9]+")
+			s := re.FindAllString(string(strings.Split(string(out), "\n")[0]), -1)
+			first_digit, _ := strconv.Atoi(s[0])
+			second_digit, _ := strconv.Atoi(s[1])
+			if second_digit >= 4 {
+				if first_digit >= 1 {
+					return true
+				} else {
+					return false
+			}
+		}
+
+	-- In Uninstall() function added below line  and commented return err lines
+
+		run("initctl", "stop", s.Name)
+
+
+		
