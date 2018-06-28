@@ -102,16 +102,18 @@ func (s *systemd) Install() error {
 }
 
 func (s *systemd) Uninstall() error {
+	//Remove/stop agent
+	run("systemctl", "stop", s.Name+".service")
 	err := run("systemctl", "disable", s.Name+".service")
 	if err != nil {
-		return err
+		//return err
 	}
 	cp, err := s.configPath()
 	if err != nil {
-		return err
+		//return err
 	}
 	if err := os.Remove(cp); err != nil {
-		return err
+		//return err
 	}
 	return nil
 }
