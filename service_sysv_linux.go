@@ -86,14 +86,20 @@ func (s *sysv) Install() error {
 	if err = os.Chmod(confPath, 0755); err != nil {
 		return err
 	}
-	for _, i := range [...]string{"2", "3", "4", "5"} {
-		if err = os.Symlink(confPath, "/etc/rc"+i+".d/S50"+s.Name); err != nil {
-			continue
+	if _, err := os.Stat("/sbin/chkconfig"); !os.IsNotExist(err) {
+		run("/sbin/chkconfig", "--add", s.Name)
+	} else if _, err := os.Stat("/usr/sbin/update-rc.d"); !os.IsNotExist(err) {
+		run("/usr/sbin/update-rc.d", s.Name, "defaults")
+	} else {
+		for _, i := range [...]string{"2", "3", "4", "5"} {
+			if err = os.Symlink(confPath, "/etc/rc"+i+".d/S50"+s.Name); err != nil {
+				continue
+			}
 		}
-	}
-	for _, i := range [...]string{"0", "1", "6"} {
-		if err = os.Symlink(confPath, "/etc/rc"+i+".d/K02"+s.Name); err != nil {
-			continue
+		for _, i := range [...]string{"0", "1", "6"} {
+			if err = os.Symlink(confPath, "/etc/rc"+i+".d/K02"+s.Name); err != nil {
+				continue
+			}
 		}
 	}
 
@@ -101,14 +107,33 @@ func (s *sysv) Install() error {
 }
 
 func (s *sysv) Uninstall() error {
-	run("/sbin/chkconfig", "--del", s.Name)
-	/*cp, err := s.configPath()
+	cp, err := s.configPath()
 	if err != nil {
 		return err
 	}
+	if _, err := os.Stat("/sbin/chkconfig"); !os.IsNotExist(err) {
+		run("/sbin/chkconfig", "--del", s.Name)
+	} else if _, err := os.Stat("/usr/sbin/update-rc.d"); !os.IsNotExist(err) {
+		run("/usr/sbin/update-rc.d", "-f", s.Name, "remove")
+	} else {
+		for _, i := range [...]string{"2", "3", "4", "5"} {
+			symlinkPath := "/etc/rc" + i + ".d/S50" + s.Name
+			if _, err := os.Lstat(symlinkPath); err == nil {
+				os.Remove(symlinkPath)
+				continue
+			}
+		}
+		for _, i := range [...]string{"0", "1", "6"} {
+			symlinkPath := "/etc/rc" + i + ".d/K02" + s.Name
+			if _, err := os.Lstat(symlinkPath); err == nil {
+				os.Remove(symlinkPath)
+				continue
+			}
+		}
+	}
 	if err := os.Remove(cp); err != nil {
 		return err
-	}*/
+	}	
 	//removing old service log files
 	os.Remove("/var/log/" + s.Name + ".log")
 	os.Remove("/var/log/" + s.Name + ".err")
@@ -144,20 +169,38 @@ func (s *sysv) Run() (err error) {
 }
 
 func (s *sysv) Start() error {
-	return run("service", s.Name, "start")
+	if os.Getuid() == 0 {
+		return run("service", s.Name, "start")
+	} else {
+		return run("sudo", "-n", "service", s.Name, "start")
+	}
 }
 
 func (s *sysv) Stop() error {
-	return run("service", s.Name, "stop")
+	if os.Getuid() == 0 {
+		return run("service", s.Name, "stop")
+	} else {
+		return run("sudo", "-n", "service", s.Name, "stop")
+	}
 }
 
 func (s *sysv) Restart() error {
-	err := s.Stop()
+	var err error
+	if os.Getuid() == 0 {
+		err = run("service", s.Name, "stop")
+	} else {
+		err = run("sudo", "-n", "service", s.Name, "stop")
+	}	
 	if err != nil {
 		return err
 	}
 	time.Sleep(50 * time.Millisecond)
-	return s.Start()
+	if os.Getuid() == 0 {
+		return run("service", s.Name, "start")
+	} else {
+		return run("sudo", "-n", "service", s.Name, "start")
+	}
+	
 }
 
 const sysvScript = `#!/bin/sh
@@ -176,9 +219,17 @@ const sysvScript = `#!/bin/sh
 # Description:       {{.Description}}
 ### END INIT INFO
 
+if [ -x /sbin/runuser ]
+then
+    SU=/sbin/runuser
+else
+    SU=/bin/su
+fi
+
 cmd="{{.Path}}{{range .Arguments}} {{.|cmd}}{{end}}"
 
 name=$(basename $(readlink -f $0))
+user={{if .UserName}}"{{.UserName}}"{{end}}
 pid_file="/var/run/$name.pid"
 stdout_log="/var/log/opsramp/$name.log"
 stderr_log="/var/log/opsramp/$name.err"
@@ -199,8 +250,9 @@ case "$1" in
             echo "Already started"
         else
             echo "Starting $name"
-            {{if .WorkingDirectory}}cd '{{.WorkingDirectory}}'{{end}}
-            $cmd >> "$stdout_log" 2>> "$stderr_log" &
+            {{if .WorkingDirectory}}cd '{{.WorkingDirectory}}'{{end}}                        
+            $SU - $user -s /bin/bash -c "$cmd" >> "$stdout_log" 2>> "$stderr_log" &
+            #$cmd >> "$stdout_log" 2>> "$stderr_log" &	   
             echo $! > "$pid_file"
             if ! is_running; then
                 echo "Unable to start, see $stdout_log and $stderr_log"
