@@ -144,15 +144,27 @@ func (s *systemd) Run() (err error) {
 }
 
 func (s *systemd) Start() error {
-	return run("systemctl", "start", s.Name+".service")
+	if os.Getuid() == 0 {
+		return run("systemctl", "start", s.Name+".service")
+	} else {
+		return run("sudo", "-n", "systemctl", "start", s.Name+".service")
+	}
 }
 
 func (s *systemd) Stop() error {
-	return run("systemctl", "stop", s.Name+".service")
+	if os.Getuid() == 0 {
+		return run("systemctl", "stop", s.Name+".service")
+	} else {
+		return run("sudo", "-n", "systemctl", "stop", s.Name+".service")
+	}
 }
 
 func (s *systemd) Restart() error {
-	return run("systemctl", "restart", s.Name+".service")
+	if os.Getuid() == 0 {
+		return run("systemctl", "restart", s.Name+".service")
+	} else {
+		return run("sudo", "-n", "systemctl", "restart", s.Name+".service")
+	}
 }
 
 const systemdScript = `[Unit]
@@ -171,6 +183,7 @@ ExecStart={{.Path|cmdEscape}}{{range .Arguments}} {{.|cmd}}{{end}}
 Restart=always
 RestartSec=120
 EnvironmentFile=-/etc/sysconfig/{{.Name}}
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
