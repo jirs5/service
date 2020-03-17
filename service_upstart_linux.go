@@ -13,8 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
-	"time"
+	"text/template"	
 )
 
 func isUpstart() bool {
