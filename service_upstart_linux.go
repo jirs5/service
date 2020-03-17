@@ -212,12 +212,11 @@ func (s *upstart) Stop() error {
 }
 
 func (s *upstart) Restart() error {
-	err := s.Stop()
-	if err != nil {
-		return err
+	if os.Getuid() == 0 {
+		return run("initctl", "restart", s.Name)
+	} else {
+		return run("sudo", "-n", "initctl", "restart", s.Name)
 	}
-	time.Sleep(50 * time.Millisecond)
-	return s.Start()
 }
 
 // The upstart script should stop with an INT or the Go runtime will terminate
