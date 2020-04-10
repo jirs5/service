@@ -157,13 +157,13 @@ func (s *freebsdRcdService) Install() error {
 
 	}else{
 		rcdScript = rcdScriptAgentUninstall
-		//file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
-		//if err != nil {
-		//	fmt.Println("failed opening file: %s", err)
-		//}
-		//defer file.Close()
-		//data := "agent_uninstall_enable="+`"`+"YES"+`"`
-		//fmt.Fprintln(file, data)
+		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			fmt.Println("failed opening file: %s", err)
+		}
+		defer file.Close()
+		data := "agent_uninstall_enable="+`"`+"YES"+`"`
+		fmt.Fprintln(file, data)
 	}
 
 	t := template.Must(template.New("rcdScript").Funcs(functions).Parse(rcdScript))
@@ -183,9 +183,10 @@ func (s *freebsdRcdService) Uninstall() error {
 
 	if s.Name == "opsramp-agent" {
 		run("sed", "-i", "-e","'/opsramp_agent_enable/d'", "/etc/rc.conf")
-	}
-	if s.Name == "opsramp-shield" {
+	}else if s.Name == "opsramp-shield" {
 		run("sed", "-i", "-e","'/opsramp_shield_enable/d'", "/etc/rc.conf")
+	}else{
+		run("sed", "-i", "-e","'/agent_uninstall_enable/d'", "/etc/rc.conf")
 	}
 	confPath, err := s.getServiceFilePath()
 	if err != nil {
