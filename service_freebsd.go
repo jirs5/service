@@ -138,7 +138,7 @@ func (s *freebsdRcdService) Install() error {
 		rcdScript = rcdScriptOpsrampAgent
 		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			fmt.Println("failed opening file: %s", err)
+			fmt.Errorf("failed opening file: %s", err)
 		}
 		defer file.Close()
 		data := "opsramp_agent_enable="+`"`+"YES"+`"`
@@ -149,7 +149,7 @@ func (s *freebsdRcdService) Install() error {
 		rcdScript = rcdScriptOpsrampShield
 		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			fmt.Println("failed opening file: %s", err)
+			fmt.Errorf("failed opening file: %s", err)
 		}
 		defer file.Close()
 		data := "opsramp_shield_enable="+`"`+"YES"+`"`
@@ -159,7 +159,7 @@ func (s *freebsdRcdService) Install() error {
 		rcdScript = rcdScriptAgentUninstall
 		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			fmt.Println("failed opening file: %s", err)
+			fmt.Errorf("failed opening file: %s", err)
 		}
 		defer file.Close()
 		data := "agent_uninstall_enable="+`"`+"YES"+`"`
@@ -172,7 +172,7 @@ func (s *freebsdRcdService) Install() error {
 	serviceName := "/etc/rc.d/" + s.Name
 	err = os.Chmod(serviceName, 755)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Errorf("Not able to give permission")
 	}
 
 	return errExecute
@@ -234,11 +234,14 @@ func (s *freebsdRcdService) SystemLogger(errs chan<- error) (Logger, error) {
 	return newSysLogger(s.Name, errs)
 }
 
-const rcdScriptOpsrampAgent = `. /etc/rc.subr
+const rcdScriptOpsrampAgent = `
+#!/bin/sh
+. /etc/rc.subr
 
 name="opsramp_agent"
 rcvar="opsramp_agent_enable"
-command="/opt/opsramp/agent/opsramp-agent service"
+command="/opt/opsramp/agent/opsramp-agent"
+command_args="service"
 pidfile="/var/run/${name}.pid"
 
 start_cmd="test_start"
@@ -246,7 +249,7 @@ stop_cmd="test_stop"
 status_cmd="test_status"
 
 test_start() {
-        /usr/sbin/daemon -p ${pidfile} ${command}
+        /usr/sbin/daemon -p ${pidfile} ${command} ${command_args}
 }
 
 test_status() {
@@ -271,11 +274,14 @@ load_rc_config $name
 run_rc_command "$1"
 `
 
-const rcdScriptOpsrampShield = `. /etc/rc.subr
+const rcdScriptOpsrampShield = `
+#!/bin/sh
+. /etc/rc.subr
 
 name="opsramp_shield"
 rcvar="opsramp_shield_enable"
-command="/opt/opsramp/agent/bin/opsramp-shield service"
+command="/opt/opsramp/agent/bin/opsramp-shield"
+command_args="service"
 pidfile="/var/run/${name}.pid"
 
 start_cmd="test_start"
@@ -283,7 +289,7 @@ stop_cmd="test_stop"
 status_cmd="test_status"
 
 test_start() {
-        /usr/sbin/daemon -p ${pidfile} ${command}
+        /usr/sbin/daemon -p ${pidfile} ${command} ${command_args}
 }
 
 test_status() {
@@ -307,7 +313,9 @@ test_stop() {
 load_rc_config $name
 run_rc_command "$1"
 `
-const rcdScriptAgentUninstall = `. /etc/rc.subr
+const rcdScriptAgentUninstall = `
+#!/bin/sh
+. /etc/rc.subr
 
 name="agent_uninstall"
 rcvar="agent_uninstall_enable"
@@ -418,3 +426,4 @@ func run(command string, arguments ...string) error {
 
 	return nil
 }
+
