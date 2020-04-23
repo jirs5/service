@@ -12,6 +12,9 @@ import (
 	"io/ioutil"
 	"log/syslog"
 	"os/exec"
+	"strings"
+
+
 )
 
 const maxPathSize = 32 * 1024
@@ -73,14 +76,13 @@ func (s *freebsdRcdService) String() string {
 	return s.Name
 }
 
-
-
 func (s *freebsdRcdService) getServiceFilePath() (string, error) {
 
 	return "/etc/rc.d/" + s.Name , nil
 }
 
 func (s *freebsdRcdService) Install() error {
+
 	confPath, err := s.getServiceFilePath()
 	if err != nil {
 		return err
@@ -132,44 +134,32 @@ func (s *freebsdRcdService) Install() error {
 		},
 	}
 
-	var  rcdScript = ``
-	if s.Name == "opsramp-agent"{
+	name := s.Name
+	serviceName := strings.Replace(name, "-", "_",-1)
+	serviceRcvar := serviceName + "_enable"
 
-		rcdScript = rcdScriptOpsrampAgent
-		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			fmt.Errorf("failed opening file: %s", err)
-		}
-		defer file.Close()
-		data := "opsramp_agent_enable="+`"`+"YES"+`"`
-		fmt.Fprintln(file, data)
-
-
-	}else if s.Name == "opsramp-shield"{
-		rcdScript = rcdScriptOpsrampShield
-		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			fmt.Errorf("failed opening file: %s", err)
-		}
-		defer file.Close()
-		data := "opsramp_shield_enable="+`"`+"YES"+`"`
-		fmt.Fprintln(file, data)
-
+	serviceScript := strings.Replace(rcdScriptOpsramp, "serviceNameToReplace", serviceName,-1)
+	serviceScript = strings.Replace(serviceScript, "rcvarToReplace", serviceRcvar,-1)
+	serviceScript = strings.Replace(serviceScript, "commandToReplace", path,-1)
+	if len(s.Config.Arguments)==0{
+		serviceScript = strings.Replace(serviceScript, "argumentsToReplace", "",-1)
 	}else{
-		rcdScript = rcdScriptAgentUninstall
-		file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			fmt.Errorf("failed opening file: %s", err)
-		}
-		defer file.Close()
-		data := "agent_uninstall_enable="+`"`+"YES"+`"`
-		fmt.Fprintln(file, data)
+		serviceScript = strings.Replace(serviceScript, "argumentsToReplace", s.Config.Arguments[0],-1)
+
 	}
 
-	t := template.Must(template.New("rcdScript").Funcs(functions).Parse(rcdScript))
+	file, err := os.OpenFile("/etc/rc.conf", os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		fmt.Errorf("failed opening file: %s", err)
+		}
+		defer file.Close()
+	data :=  serviceRcvar + "="+`"`+"YES"+`"`
+	fmt.Fprintln(file, data)
+
+	t := template.Must(template.New("serviceScript").Funcs(functions).Parse(serviceScript))
 	errExecute := t.Execute(f, to)
 
-	serviceName := "/etc/rc.d/" + s.Name
+	serviceName = "/etc/rc.d/" + s.Name
 	err = os.Chmod(serviceName, 755)
 	if err != nil {
 		fmt.Errorf("Not able to give permission")
@@ -181,13 +171,14 @@ func (s *freebsdRcdService) Install() error {
 func (s *freebsdRcdService) Uninstall() error {
 	s.Stop()
 
-	if s.Name == "opsramp-agent" {
-		run("sed", "-i", "-e","'/opsramp_agent_enable/d'", "/etc/rc.conf")
-	}else if s.Name == "opsramp-shield" {
-		run("sed", "-i", "-e","'/opsramp_shield_enable/d'", "/etc/rc.conf")
-	}else{
-		run("sed", "-i", "-e","'/agent_uninstall_enable/d'", "/etc/rc.conf")
-	}
+	name := s.Name
+	serviceName := strings.Replace(name, "-", "_",-1)
+	serviceRcvar := serviceName + "_enable"
+
+	serviceToDisable := "'/" + serviceRcvar + "/d'"
+
+	run("sed", "-i", "-e", serviceToDisable, "/etc/rc.conf")
+
 	confPath, err := s.getServiceFilePath()
 	if err != nil {
 		return err
@@ -234,54 +225,15 @@ func (s *freebsdRcdService) SystemLogger(errs chan<- error) (Logger, error) {
 	return newSysLogger(s.Name, errs)
 }
 
-const rcdScriptOpsrampAgent = `
+
+const rcdScriptOpsramp = `
 #!/bin/sh
 . /etc/rc.subr
 
-name="opsramp_agent"
-rcvar="opsramp_agent_enable"
-command="/opt/opsramp/agent/opsramp-agent"
-command_args="service"
-pidfile="/var/run/${name}.pid"
-
-start_cmd="test_start"
-stop_cmd="test_stop"
-status_cmd="test_status"
-
-test_start() {
-        /usr/sbin/daemon -p ${pidfile} ${command} ${command_args}
-}
-
-test_status() {
-        if [ -e ${pidfile} ]; then
-                echo ${name} is running...
-        else
-                echo ${name} is not running.
-        fi
-}
-
-test_stop() {
-        if [ -e ${pidfile} ]; then
-`+
-               " kill `cat ${pidfile}`; " +
-	`
-        else
-                echo ${name} is not running?
-        fi
-}
-
-load_rc_config $name
-run_rc_command "$1"
-`
-
-const rcdScriptOpsrampShield = `
-#!/bin/sh
-. /etc/rc.subr
-
-name="opsramp_shield"
-rcvar="opsramp_shield_enable"
-command="/opt/opsramp/agent/bin/opsramp-shield"
-command_args="service"
+name=serviceNameToReplace
+rcvar=rcvarToReplace
+command=commandToReplace
+command_args=argumentsToReplace
 pidfile="/var/run/${name}.pid"
 
 start_cmd="test_start"
@@ -313,45 +265,6 @@ test_stop() {
 load_rc_config $name
 run_rc_command "$1"
 `
-const rcdScriptAgentUninstall = `
-#!/bin/sh
-. /etc/rc.subr
-
-name="agent_uninstall"
-rcvar="agent_uninstall_enable"
-command="/opt/opsramp/agent/bin/uninstall"
-pidfile="/var/run/${name}.pid"
-
-start_cmd="test_start"
-stop_cmd="test_stop"
-status_cmd="test_status"
-
-test_start() {
-        /usr/sbin/daemon -p ${pidfile} ${command}
-}
-
-test_status() {
-        if [ -e ${pidfile} ]; then
-                echo ${name} is running...
-        else
-                echo ${name} is not running.
-        fi
-}
-
-test_stop() {
-        if [ -e ${pidfile} ]; then
-`+
-	" kill `cat ${pidfile}`; " +
-	`
-        else
-                echo ${name} is not running?
-        fi
-}
-
-load_rc_config $name
-run_rc_command "$1"
-`
-
 
 func newSysLogger(name string, errs chan<- error) (Logger, error) {
 	w, err := syslog.New(syslog.LOG_INFO, name)
