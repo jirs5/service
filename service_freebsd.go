@@ -271,6 +271,9 @@ test_stop() {
                 echo ${name} is not running?
         fi
 }
+
+load_rc_config $name
+run_rc_command "$1"
 `
 
 func newSysLogger(name string, errs chan<- error) (Logger, error) {
