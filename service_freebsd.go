@@ -255,15 +255,22 @@ test_status() {
 test_stop() {
         if [ -e ${pidfile} ]; then
 `+
-	" kill `cat ${pidfile}`; " +
+               " kill `cat ${pidfile}`; " +
 	`
+                sleep 1
+                if [ -e ${pidfile} ]; then
+                        sleep 4
+                        if [ -e ${pidfile} ]; then
+`+
+                               " kill -9 `cat ${pidfile}`; " +
+	`
+                                echo "${name} killed using signal 9 SIGKILL"
+                        fi          
+                fi
         else
                 echo ${name} is not running?
         fi
 }
-
-load_rc_config $name
-run_rc_command "$1"
 `
 
 func newSysLogger(name string, errs chan<- error) (Logger, error) {
