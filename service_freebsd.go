@@ -241,35 +241,31 @@ stop_cmd="test_stop"
 status_cmd="test_status"
 
 test_start() {
-        /usr/sbin/daemon -p ${pidfile} ${command} ${command_args}
+    /usr/sbin/daemon -p ${pidfile} ${command} ${command_args}
 }
 
 test_status() {
-        if [ -e ${pidfile} ]; then
-                echo ${name} is running...
-        else
-                echo ${name} is not running.
-        fi
+    if [ -e ${pidfile} ]; then
+        echo ${name} is running...
+    else
+        echo ${name} is not running.
+    fi
 }
 
 test_stop() {
+    if [ -e ${pidfile} ]; then` + "\n" +
+"        kill `cat ${pidfile}`;" + "\n" +
+	`        sleep 1
         if [ -e ${pidfile} ]; then
-`+
-               " kill `cat ${pidfile}`; " +
-	`
-                sleep 1
-                if [ -e ${pidfile} ]; then
-                        sleep 4
-                        if [ -e ${pidfile} ]; then
-`+
-                               " kill -9 `cat ${pidfile}`; " +
-	`
-                                echo "${name} killed using signal 9 SIGKILL"
-                        fi          
-                fi
-        else
-                echo ${name} is not running?
+            sleep 4
+            if [ -e ${pidfile} ]; then` + "\n" +
+"                kill -9 `cat ${pidfile}`;" + "\n" +
+	`                echo "${name} killed using signal 9 SIGKILL"
+            fi          
         fi
+    else
+        echo ${name} is not running?
+    fi
 }
 
 load_rc_config $name
