@@ -254,14 +254,22 @@ test_status() {
 
 test_stop() {
     if [ -e ${pidfile} ]; then` + "\n" +
-"        kill `cat ${pidfile}`;" + "\n" +
-	`        sleep 1
-        if [ -e ${pidfile} ]; then
+"        PID=`cat ${pidfile}`" + "\n" +
+	`    else
+        echo ${name} is not running?
+    fi
+    kill -0 $PID 2>/dev/null
+    if [ $? -eq 0 ]; then
+        kill $PID;
+        sleep 1
+        kill -0 $PID 2>/dev/null
+        if [ $? -eq 0 ]; then
             sleep 4
-            if [ -e ${pidfile} ]; then` + "\n" +
-"                kill -9 `cat ${pidfile}`;" + "\n" +
-	`                echo "${name} killed using signal 9 SIGKILL"
-            fi          
+            kill -0 $PID 2>/dev/null
+            if [ $? -eq 0 ]; then
+                kill -9 $PID;
+                echo "${name} killed using signal 9 SIGKILL"
+            fi
         fi
     else
         echo ${name} is not running?
