@@ -242,24 +242,7 @@ case "$1" in
             {{if .WorkingDirectory}}cd '{{.WorkingDirectory}}'{{end}}                        
             $SU - $user -s /bin/bash -c "$cmd" >> "$stdout_log" 2>> "$stderr_log" &
             #$cmd >> "$stdout_log" 2>> "$stderr_log" &	   
-            #echo $! > "$pid_file"
-            ppid=$!
-            cpid=""
-            for i in $(seq 1 30)
-            do
-                cpid=$(pgrep -P "$ppid")
-                if [ "$cpid" != "" ] ; then
-                    break
-                fi
-                sleep 1                
-            done
-            if [ "$cpid" != "" ] ; then
-                echo $cpid > "$pid_file"
-                kill -9 "$ppid"
-                wait "$ppid" 2>/dev/null
-            else
-               echo $ppid > "$pid_file"
-            fi
+            echo $! > "$pid_file"
             if ! is_running; then
                 echo "Unable to start, see $stdout_log and $stderr_log"
                 exit 1
