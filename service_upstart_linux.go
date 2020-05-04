@@ -155,11 +155,7 @@ func (s *upstart) Install() error {
 }
 
 func (s *upstart) Uninstall() error {
-	if os.Getuid() == 0 {
-		run("initctl", "stop", s.Name)
-	} else {
-		run("sudo", "-n", "initctl", "stop", s.Name)
-	}
+	run("initctl", "stop", s.Name)
 	cp, err := s.configPath()
 	if err != nil {
 		//return err
@@ -196,19 +192,11 @@ func (s *upstart) Run() (err error) {
 }
 
 func (s *upstart) Start() error {
-	if os.Getuid() == 0 {
-		return run("initctl", "start", s.Name)
-	} else {
-		return run("sudo", "-n", "initctl", "start", s.Name)
-	}
+	return run("initctl", "start", s.Name)
 }
 
 func (s *upstart) Stop() error {
-	if os.Getuid() == 0 {
-		return run("initctl", "stop", s.Name)
-	} else {
-		return run("sudo", "-n", "initctl", "stop", s.Name)
-	}
+	return run("initctl", "stop", s.Name)
 }
 
 func (s *upstart) Restart() error {
