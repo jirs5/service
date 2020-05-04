@@ -253,10 +253,21 @@ test_status() {
 }
 
 test_stop() {
+    PID=''
     if [ -e ${pidfile} ]; then` + "\n" +
 "        PID=`cat ${pidfile}`" + "\n" +
-	`    else
+	`        if [ -z "$PID" ]; then
+            echo ${name} is not running?
+            exit 0
+        fi
+        echo "$PID"|grep "^[0-9]*$" 1>/dev/null
+        if [ $? -ne 0  ]; then
+            echo ${name} is not running?
+            exit 0
+        fi
+    else
         echo ${name} is not running?
+        exit 0
     fi
     kill -0 $PID 2>/dev/null
     if [ $? -eq 0 ]; then
