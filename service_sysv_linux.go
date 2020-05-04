@@ -10,7 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"text/template"	
+	"text/template"
+	"time"
 )
 
 type sysv struct {
