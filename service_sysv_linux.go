@@ -185,10 +185,20 @@ func (s *sysv) Stop() error {
 }
 
 func (s *sysv) Restart() error {
+	var err error
 	if os.Getuid() == 0 {
-		return run("service", s.Name, "restart")
+		err = run("service", s.Name, "stop")
 	} else {
-		return run("sudo", "-n", "service", s.Name, "restart")
+		err = run("sudo", "-n", "service", s.Name, "stop")
+	}	
+	if err != nil {
+		return err
+	}
+	time.Sleep(50 * time.Millisecond)
+	if os.Getuid() == 0 {
+		return run("service", s.Name, "start")
+	} else {
+		return run("sudo", "-n", "service", s.Name, "start")
 	}
 	
 }
